@@ -66,6 +66,49 @@ function google { Q="$@"
 ################################################################################
 # Get the lyrics from plyrics
 ################################################################################
+function do_it_lirikkapanlagi() {
+    # If we passed in a url
+    if [[ "$1" == '--url' ]];then
+        URL="$2"
+    else
+        # Or, lets google it and get one
+        ALL=$(google "$1 $2 site:lirik.kapanlagi.com");
+        URL="$(echo $ALL | tr ' ' '\n' | grep "lirik.kapanlagi.com" -m 1)";
+    fi
+
+    if [[ -z "$URL" ]];then
+        echo "There was no lirik.kapanlagi.com results. giving up...";
+        exit 0;
+    fi
+
+    # Print the artist and title we are going to look up
+    echo -e "($URL) $1 - $2: ";
+    # Run the curl and store the lyrics into a var
+    # This uniq is sketchy, but if a song's lyrics are very similar, maybe I
+    # don't care if we squash them anyways.
+    RESULT="$($CURL $URL | awk '/<div class="col-lirik lyrics-body/, /<\/div>/' \
+        | perl -pe 's/<\/span><span/<\/span>\r\n<span/g' \
+        | perl -pe 's/<br \/>/\r\n\n/g' \
+        | perl -pe 's/<.*?>//g' \
+        | sed "s/&#039;/'/g" \
+        | uniq
+    )";
+
+    # If we didn't get anything, lets give up. This is the last option.
+    if [[ -z "$RESULT" ]];then
+        echo "That URL sucked. Giving up now :(";
+        exit 0;
+
+    # We found something
+    else
+        echo "$RESULT"
+    fi
+
+}
+
+################################################################################
+# Get the lyrics from plyrics
+################################################################################
 function do_it_plyrics() {
     # If we passed in a url
     if [[ "$1" == "--url" ]];then
@@ -76,7 +119,8 @@ function do_it_plyrics() {
     fi
 
     if [[ -z "$URL" ]];then
-        echo "There were no plyrics.com results. Giving up now :(";
+        echo "There were no plyrics.com results. Trying kapanlagi now...";
+        do_it_lirikkapanlagi  "$1" "$2"
         exit 0;
     fi
     # Print the artist and title we are going to look up
@@ -104,7 +148,8 @@ function do_it_plyrics() {
 
     # If we didn't get anything, lets give up. This is the last option.
     if [[ -z "$RESULT" ]];then
-        echo "That URL sucked. Giving up now :(";
+        echo "That URL sucked. Trying lirik.kapanlagi..";
+        do_it_lirikkapanlagi  "$1" "$2"
         exit 0;
 
     # We found something
